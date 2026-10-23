@@ -304,6 +304,27 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
 .tour-actions .btn-ghost { justify-content: center; height: 50px; border-radius: 8px; }
 .tour-actions .btn-ghost:disabled { opacity: .35; }
 .rec-tip .link { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; }
+
+/* ---------- metrônomo visual ---------- */
+#rec { position: absolute; }
+.beat-flash { position: absolute; inset: 0; z-index: 6; pointer-events: none; background: var(--rec); opacity: 0; display: grid; place-items: center; }
+.beat-flash span { font-size: 42vmin; font-weight: 700; color: #fff; line-height: 1; font-variant-numeric: tabular-nums; }
+.beat-flash.on { animation: beatFlash .26s ease-out both; }
+.beat-flash.on.accent { animation-name: beatFlashAccent; }
+@keyframes beatFlash { from { opacity: .5; } to { opacity: 0; } }
+@keyframes beatFlashAccent { from { opacity: .92; } to { opacity: 0; } }
+.beat-dots { display: flex; justify-content: center; gap: 10px; margin: -14px 0 18px; }
+.beat-dots[hidden] { display: none !important; }
+.beat-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--panel-2); transition: background .08s; }
+.beat-dots i.on { background: var(--rec); }
+.beat-dots i.one { box-shadow: 0 0 0 4px rgba(217,8,87,.3); }
+.rec-tip.warn { border: 1px solid var(--warn); color: #e9d9b0; margin-top: 14px; }
+.rec-tip.warn strong { color: var(--warn); }
+.rec-tip.warn[hidden] { display: none !important; }
+.metro-opts { display: flex; flex-direction: column; gap: 12px; padding: 4px 0 4px 12px; border-left: 2px solid var(--line); }
+.metro-opts[hidden] { display: none !important; }
+.toggle-row small { display: block; font-size: 11px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .beat-flash.on, .beat-flash.on.accent { animation: beatFlash .26s ease-out both !important; } }
 </style>
 
 <div class="device" id="device">
@@ -407,17 +428,21 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
       <button class="icon-btn metro-btn" id="metro-btn" aria-label="Metrônomo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6l4 18H5L9 3z"/><path d="m12 17 5-9"/><path d="M7.5 15h9"/></svg><span class="bpm" id="metro-bpm">85</span></button>
     </div>
     <div class="timer" id="rec-timer">00:00.00</div>
+    <div class="beat-dots" id="beat-dots" hidden><i></i><i></i><i></i><i></i></div>
     <div class="wave-wrap"><canvas id="rec-wave"></canvas></div>
     <div class="meter"><i id="meter-fill"></i></div>
     <div class="meter-label"><span>Nível do microfone</span><span id="meter-text">—</span></div>
+    <div class="rec-tip warn" id="rec-warn" hidden></div>
     <div class="rec-tip" id="rec-tip"></div>
     <div class="rec-controls">
       <button class="ctl" id="rec-flag" aria-label="Marcar trecho" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 21V4m0 0h10l-2 4 2 4H6"/></svg></button>
       <button class="ctl main idle" id="rec-main" aria-label="Gravar"><svg viewBox="0 0 24 24" fill="currentColor" id="rec-main-icon"><rect x="7" y="6" width="3.2" height="12" rx="1"/><rect x="13.8" y="6" width="3.2" height="12" rx="1"/></svg></button>
       <button class="ctl" id="rec-done" aria-label="Concluir" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></button>
     </div>
+      <div class="beat-flash" id="beat-flash" aria-hidden="true"><span id="beat-num"></span></div>
   </section>
 
+  <!-- (fim da gravação) -->
   <!-- Processando -->
   <section class="screen" id="proc" hidden>
     <div class="pulse"><b></b></div>
@@ -520,15 +545,20 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
       </div>
       <div class="tour-slide" data-i="4">
         <div class="tour-art"><svg viewBox="0 0 320 190" aria-hidden="true">
-<g stroke="#aab4dc" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M70 120v-20a40 40 0 0 1 80 0v20"/></g>
-<rect x="60" y="112" width="20" height="38" rx="8" fill="#d90857"/><rect x="140" y="112" width="20" height="38" rx="8" fill="#d90857"/>
-<g stroke="#aab4dc" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M222 46h28l18 104h-64z"/><path d="M236 130l22-58"/><path d="M216 120h44"/></g>
-<circle cx="258" cy="72" r="5" fill="#d90857"/>
-<text x="110" y="176" text-anchor="middle" fill="#aab4dc" font-size="11">clique só no fone</text>
-<text x="236" y="176" text-anchor="middle" fill="#aab4dc" font-size="11">não no alto-falante</text>
+<g stroke="#aab4dc" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M34 112v-18a34 34 0 0 1 68 0v18"/><path d="M45 146c0 14 10 22 24 22h20"/></g>
+<rect x="26" y="106" width="18" height="34" rx="7" fill="#d90857"/><rect x="92" y="106" width="18" height="34" rx="7" fill="#d90857"/>
+<circle cx="96" cy="168" r="4" fill="#aab4dc"/>
+<text x="68" y="186" text-anchor="middle" fill="#aab4dc" font-size="11">fone com fio</text>
+<rect x="134" y="40" width="58" height="104" rx="9" fill="#d90857"/><rect x="138" y="48" width="50" height="86" rx="4" fill="#e8467f"/>
+<text x="163" y="105" text-anchor="middle" fill="#fff" font-size="40" font-weight="700">1</text>
+<g stroke="#d90857" stroke-width="2.2" stroke-linecap="round"><path d="M124 56l-10-6M124 92h-12M124 128l-10 6M202 56l10-6M202 92h12M202 128l10 6"/></g>
+<text x="163" y="186" text-anchor="middle" fill="#aab4dc" font-size="11">ou a tela piscando</text>
+<g stroke="#aab4dc" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M262 66l26 22-13 11V55l13 11-26 22"/></g>
+<path d="M244 56l64 64" stroke="#d90857" stroke-width="3" stroke-linecap="round"/>
+<text x="276" y="186" text-anchor="middle" fill="#aab4dc" font-size="11">Bluetooth atrasa</text>
 </svg></div>
-        <h2>Metrônomo no fone</h2>
-        <p>Vai tocar com clique? Use <b>fone de ouvido</b>. Se o metrônomo sair pelo alto-falante, ele entra na gravação junto com a bateria.</p>
+        <h2>Metrônomo: fone com fio ou tela</h2>
+        <p>Com a bateria tocando, você não ouve o alto-falante. Use <b>fone com fio</b> (os intra-auriculares isolam melhor). Evite <b>Bluetooth</b>: o clique atrasa e o celular pode gravar pelo microfone do fone. Sem fone? Ligue o <b>metrônomo visual</b>: a tela pisca em rosa a cada tempo.</p>
       </div>
     </div>
     <div class="tour-dots" id="tour-dots"></div>
@@ -554,7 +584,11 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   <div class="scrim" id="metro-sheet" hidden>
     <div class="sheet">
       <h2>Metrônomo</h2>
-      <div class="toggle-row"><span>Clique ligado</span><input type="checkbox" class="switch" id="metro-on"></div>
+      <div class="toggle-row"><span>Metrônomo ligado</span><input type="checkbox" class="switch" id="metro-on"></div>
+      <div class="metro-opts" id="metro-opts">
+        <div class="toggle-row"><span>Som do clique <small>use fone com fio</small></span><input type="checkbox" class="switch" id="metro-sound"></div>
+        <div class="toggle-row"><span>Piscar a tela em rosa <small>para ver de longe, sem fone</small></span><input type="checkbox" class="switch" id="metro-flash"></div>
+      </div>
       <div class="bpm-row">
         <button class="round" id="bpm-minus" aria-label="Diminuir">−</button>
         <output id="bpm-out">85<small>BPM</small></output>
@@ -614,6 +648,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
       <div class="daw-list"><span>Logic</span><span>Reaper</span><span>Luna</span><span>Pro Tools</span><span>Ableton</span><span>Cubase</span><span>Studio One</span></div>
       <div class="toggle-row"><span>Aplicar volume, pan e mute do mixer</span><input type="checkbox" class="switch" id="exp-mix"></div>
       <div class="toggle-row"><span>Incluir a gravação original do microfone</span><input type="checkbox" class="switch" id="exp-orig" checked></div>
+      <div class="toggle-row" id="exp-click-row" hidden><span>Incluir a pista de clique (grid da DAW)</span><input type="checkbox" class="switch" id="exp-click" checked></div>
       <div class="file-list" id="exp-files"></div>
       <button class="btn-primary" id="do-export">Exportar .zip</button>
       <button class="link" id="export-cancel" style="align-self:center">Cancelar</button>
@@ -1376,7 +1411,9 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   $('#demo-btn').addEventListener('click', loadDemo);
 
   // ---------------- metrônomo ----------------
-  var metro = { timer: null, next: 0, beat: 0, gain: null };
+  var metro = { timer: null, next: 0, beat: 0, log: [] };
+  // atraso de saída do áudio (o baterista ouve/vê o tempo um pouco depois de agendado)
+  function outLat(ctx) { return (ctx.outputLatency || 0) + (ctx.baseLatency || 0); }
   function clickAt(ctx, time, accent) {
     var o = ctx.createOscillator(), g = ctx.createGain();
     o.frequency.value = accent ? 1600 : 1050;
@@ -1389,16 +1426,40 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     var ctx = audioCtx(); metro.next = atTime || ctx.currentTime + 0.05; metro.beat = 0;
     metro.timer = setInterval(function () {
       var spb = 60 / settings.bpm;
-      while (metro.next < ctx.currentTime + 0.12) { clickAt(ctx, metro.next, metro.beat % 4 === 0); metro.next += spb; metro.beat++; }
+      while (metro.next < ctx.currentTime + 0.12) {
+        var acc = metro.beat % 4 === 0, num = metro.beat % 4 + 1;
+        if (settings.metroSound !== false) clickAt(ctx, metro.next, acc);
+        metro.log.push({ t: metro.next + outLat(ctx), a: acc });
+        scheduleBeat(ctx, metro.next, acc, num);
+        metro.next += spb; metro.beat++;
+      }
     }, 25);
   }
-  function stopMetro() { if (metro.timer) clearInterval(metro.timer); metro.timer = null; }
+  function stopMetro() { if (metro.timer) clearInterval(metro.timer); metro.timer = null; beatDots(0); }
+  // metrônomo visual: a tela pisca em rosa no tempo (mais forte no 1)
+  function scheduleBeat(ctx, time, acc, num) {
+    var ms = (time + outLat(ctx) - ctx.currentTime) * 1000;
+    setTimeout(function () {
+      if (current !== 'rec' || !metro.timer) return;
+      beatDots(num);
+      if (settings.metroFlash === false) return;
+      var el = $('#beat-flash');
+      $('#beat-num').textContent = num;
+      el.classList.remove('on', 'accent'); void el.offsetWidth;
+      el.classList.add('on'); if (acc) el.classList.add('accent');
+    }, Math.max(0, ms));
+  }
+  function beatDots(n) { $$('#beat-dots i').forEach(function (d, k) { d.classList.toggle('on', k + 1 === n); d.classList.toggle('one', k === 0 && n === 1); }); }
   function renderMetro() {
     $('#metro-bpm').textContent = settings.bpm;
     $('#metro-btn').classList.toggle('on', !!settings.metro);
     $('#bpm-out').firstChild.nodeValue = settings.bpm;
     $('#bpm-range').value = settings.bpm;
     $('#metro-on').checked = !!settings.metro;
+    $('#metro-sound').checked = settings.metroSound !== false;
+    $('#metro-flash').checked = settings.metroFlash !== false;
+    $('#metro-opts').hidden = !settings.metro;
+    $('#beat-dots').hidden = !settings.metro;
     $('#metro-count').checked = !!settings.countIn;
     setFill($('#bpm-range'));
   }
@@ -1406,10 +1467,12 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   $('#metro-btn').addEventListener('click', function () { renderMetro(); openSheet('metro-sheet'); });
   $('#metro-close').addEventListener('click', function () { closeSheet('metro-sheet'); });
   $('#metro-on').addEventListener('change', function (e) {
-    settings.metro = e.target.checked; saveSettings(); renderMetro();
+    settings.metro = e.target.checked; saveSettings(); renderMetro(); showRecWarnings();
     if (rec.state === 'recording') { if (settings.metro) startMetro(); else stopMetro(); }
   });
   $('#metro-count').addEventListener('change', function (e) { settings.countIn = e.target.checked; saveSettings(); });
+  $('#metro-sound').addEventListener('change', function (e) { settings.metroSound = e.target.checked; saveSettings(); showRecWarnings(); });
+  $('#metro-flash').addEventListener('change', function (e) { settings.metroFlash = e.target.checked; saveSettings(); });
   $('#bpm-minus').addEventListener('click', function () { setBpm(settings.bpm - 1); });
   $('#bpm-plus').addEventListener('click', function () { setBpm(settings.bpm + 1); });
   $('#bpm-range').addEventListener('input', function (e) { setBpm(+e.target.value); });
@@ -1436,7 +1499,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     $('#tour-next').textContent = tourI === tourN - 1 ? 'Entendi, vamos gravar' : 'Próximo';
   }
   function openTour() { $('#tour').hidden = false; requestAnimationFrame(function () { tourGo(0, false); }); }
-  function closeTour() { $('#tour').hidden = true; store('tourSeen', true); }
+  function closeTour() { $('#tour').hidden = true; store('tourSeen2', true); }
   $('#tour-next').addEventListener('click', function () { if (tourI >= tourN - 1) closeTour(); else tourGo(tourI + 1); });
   $('#tour-prev').addEventListener('click', function () { tourGo(tourI - 1); });
   $('#tour-skip').addEventListener('click', closeTour);
@@ -1458,7 +1521,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   }
   function openRecorder() {
     show('rec');
-    if (!store('tourSeen')) openTour();
+    if (!store('tourSeen2')) openTour();
     resetRec();
     renderMetro();
     sizeCanvas($('#rec-wave'));
@@ -1467,14 +1530,15 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     startInput().catch(function (err) { micError(err); });
   }
   function resetRec() {
-    rec.state = 'idle'; rec.chunks = []; rec.peaks = []; rec.markers = []; rec.samples = 0; rec.clip = false;
+    rec.state = 'idle'; rec.chunks = []; rec.peaks = []; rec.markers = []; rec.samples = 0; rec.clip = false; rec.segs = []; metro.log = [];
     $('#rec-title').textContent = 'Pronto para gravar';
     $('#rec-timer').textContent = '00:00.00';
     var m = $('#rec-main'); m.classList.add('idle'); m.setAttribute('aria-label', 'Gravar');
     $('#rec-flag').disabled = true; $('#rec-done').disabled = true;
-    var tip = $('#rec-tip'); tip.classList.remove('err'); tip.hidden = false;
+    var tip = $('#rec-tip'); tip.classList.remove('err', 'warn'); tip.hidden = false;
     tip.innerHTML = '<strong>Dica:</strong> celular num tripé, a 1–1,5 m da bateria, na altura do ombro. <button class="link" id="tip-guide">Ver o guia de gravação</button>';
     $('#tip-guide').addEventListener('click', function () { openTour(); });
+    showRecWarnings();
   }
   function micError(err) {
     var tip = $('#rec-tip'); tip.classList.add('err');
@@ -1484,12 +1548,14 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     $('#tip-demo').addEventListener('click', function () { stopInput(); loadDemo(); });
     $('#rec-main').disabled = true;
   }
-  function startInput() {
+  function startInput(deviceId) {
     if (rec.stream) return Promise.resolve();
     $('#rec-main').disabled = false;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.reject(new Error('no-media'));
     // sem cancelamento de eco, supressão de ruído nem ganho automático: bateria é dinâmica
-    return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } }).then(function (stream) {
+    var cons = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 };
+    if (deviceId) cons.deviceId = { exact: deviceId };
+    return navigator.mediaDevices.getUserMedia({ audio: cons }).then(function (stream) {
       var ctx = audioCtx(); rec.stream = stream; rec.sr = ctx.sampleRate;
       rec.src = ctx.createMediaStreamSource(stream);
       var onData = function (d) {
@@ -1513,10 +1579,42 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
       var sp = ctx.createScriptProcessor(2048, 1, 1);
       sp.onaudioprocess = function (e) { onData(new Float32Array(e.inputBuffer.getChannelData(0))); };
       rec.src.connect(sp).connect(silent); rec.node = sp;
-    }).then(function () { loopRec(); });
+    }).then(function () { loopRec(); return checkBluetooth(); });
   }
+  // ---- fone Bluetooth: atraso no clique e, pior, o celular pode gravar pelo microfone do fone
+  function isBt(label) { return /bluetooth|airpods|buds|headset|hands.?free|\bbt\b|wh-1000|wf-1000|jbl|beats|soundcore|qcy/i.test(label || ''); }
+  function checkBluetooth() {
+    rec.bt = { mic: false, out: false };
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return Promise.resolve();
+    return navigator.mediaDevices.enumerateDevices().then(function (devs) {
+      var tr = rec.stream && rec.stream.getAudioTracks()[0];
+      rec.bt.mic = isBt(tr && tr.label);
+      rec.bt.out = devs.some(function (d) { return isBt(d.label); });
+      if (rec.bt.mic && !rec.triedSwitch) {
+        // tenta voltar para o microfone do próprio celular
+        rec.triedSwitch = true;
+        var alt = devs.filter(function (d) { return d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications' && !isBt(d.label); })[0];
+        if (alt) { stopInput(); return startInput(alt.deviceId); }
+      }
+    }).catch(function () { }).then(showRecWarnings);
+  }
+  function showRecWarnings() {
+    var box = $('#rec-warn'); if (!box) return;
+    var bt = rec.bt || {}, msg = '';
+    if (bt.mic) msg = '<strong>O celular está gravando pelo microfone do fone Bluetooth</strong>, com qualidade de ligação. Desconecte o fone para gravar pelo microfone do celular.';
+    else if (bt.out && settings.metro && settings.metroSound !== false) msg = '<strong>Fone Bluetooth conectado:</strong> o clique chega com atraso (até 0,3 s). Prefira fone com fio ou use só o metrônomo visual.';
+    box.innerHTML = msg; box.hidden = !msg || rec.state === 'recording';
+  }
+  // ---- tela sempre acesa enquanto grava
+  function keepAwake(on) {
+    try {
+      if (on && navigator.wakeLock && !rec.wake) navigator.wakeLock.request('screen').then(function (l) { rec.wake = l; l.addEventListener('release', function () { rec.wake = null; }); }).catch(function () { });
+      if (!on && rec.wake) { rec.wake.release(); rec.wake = null; }
+    } catch (e) { }
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && current === 'rec' && rec.state !== 'idle') keepAwake(true); });
   function stopInput() {
-    cancelAnimationFrame(rec.raf); stopMetro();
+    cancelAnimationFrame(rec.raf); stopMetro(); keepAwake(false);
     try { if (rec.node) rec.node.disconnect(); if (rec.src) rec.src.disconnect(); } catch (e) { }
     if (rec.stream) rec.stream.getTracks().forEach(function (t) { t.stop(); });
     rec.stream = null; rec.node = null; rec.src = null;
@@ -1564,8 +1662,11 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   }
   function beginRecording() {
     var ctx = audioCtx();
+    metro.log = []; rec.segs = []; keepAwake(true);
     var go = function () {
       rec.state = 'recording';
+      rec.segs.push({ ctx: audioCtx().currentTime, s: rec.samples });
+      $('#rec-warn').hidden = true;
       $('#rec-title').textContent = 'Gravando';
       var m = $('#rec-main'); m.classList.remove('idle'); m.setAttribute('aria-label', 'Pausar');
       setMainIcon('pause');
@@ -1591,9 +1692,21 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     } else if (rec.state === 'recording') {
       rec.state = 'paused'; stopMetro(); $('#rec-title').textContent = 'Pausado'; setMainIcon('rec'); $('#rec-main').setAttribute('aria-label', 'Continuar');
     } else if (rec.state === 'paused') {
-      rec.state = 'recording'; if (settings.metro) startMetro(); $('#rec-title').textContent = 'Gravando'; setMainIcon('pause'); $('#rec-main').setAttribute('aria-label', 'Pausar');
+      rec.state = 'recording'; rec.segs.push({ ctx: audioCtx().currentTime, s: rec.samples }); if (settings.metro) startMetro(); $('#rec-title').textContent = 'Gravando'; setMainIcon('pause'); $('#rec-main').setAttribute('aria-label', 'Pausar');
     }
   });
+  function clicksInRecording() {
+    var out = [], sr = rec.sr, total = rec.samples / sr, segs = rec.segs || [];
+    (metro.log || []).forEach(function (c) {
+      for (var i = segs.length - 1; i >= 0; i--) {
+        if (c.t < segs[i].ctx) continue;
+        var start = segs[i].s / sr, end = i + 1 < segs.length ? segs[i + 1].s / sr : total, pos = start + (c.t - segs[i].ctx);
+        if (pos >= start && pos < end) out.push({ t: Math.round(pos * 10000) / 10000, a: c.a });
+        break;
+      }
+    });
+    return out;
+  }
   $('#rec-flag').addEventListener('click', function () {
     var t = rec.samples / rec.sr; rec.markers.push(t); toast('Marcador em ' + fmtTime(t, true), 1500);
   });
@@ -1601,9 +1714,10 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     if (!rec.samples) return;
     var data = new Float32Array(rec.samples), o = 0;
     rec.chunks.forEach(function (c) { data.set(c, o); o += c.length; });
-    var markers = rec.markers.slice(), sr = rec.sr;
+    var markers = rec.markers.slice(), sr = rec.sr, clicks = clicksInRecording();
     stopInput(); rec.state = 'idle';
     var take = newTake('', data, sr, markers);
+    if (clicks.length) { take.clicks = clicks; take.bpm = settings.bpm; }
     askName(take);
   });
   $('#rec-back').addEventListener('click', function () {
@@ -2169,10 +2283,12 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   function exportList() {
     var applyMix = $('#exp-mix').checked, orig = $('#exp-orig').checked, files = [];
     if (orig) files.push('00 Original (mic).wav');
+    var clickName = take.clicks && take.clicks.length && $('#exp-click').checked ? pad(take.stems.length + 1) + ' Click (metrônomo).wav' : null;
     take.stems.forEach(function (s, i) {
       if (applyMix && !audible(s.id)) return;
       files.push(pad(i + 1) + ' ' + s.label + '.wav');
     });
+    if (clickName) files.push(clickName);
     files.push('LEIA-ME.txt');
     return files;
   }
@@ -2181,13 +2297,19 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     $('#exp-files').innerHTML = '';
     exportList().forEach(function (f) { var d = document.createElement('div'); d.textContent = f + (f.slice(-4) === '.wav' ? '  ·  ' + (f.indexOf('Original') >= 0 ? 'mono' : ch) : ''); $('#exp-files').appendChild(d); });
   }
-  $('#open-export').addEventListener('click', function () { pause(); renderExportList(); openSheet('export-sheet'); });
+  $('#open-export').addEventListener('click', function () {
+    pause();
+    var hasClick = !!(take.clicks && take.clicks.length);
+    $('#exp-click-row').hidden = !hasClick;
+    renderExportList(); openSheet('export-sheet');
+  });
+  $('#exp-click').addEventListener('change', function () { renderExportList(); });
   $('#exp-mix').addEventListener('change', renderExportList);
   $('#exp-orig').addEventListener('change', renderExportList);
   $('#export-cancel').addEventListener('click', function () { closeSheet('export-sheet'); });
   $('#do-export').addEventListener('click', function () {
     var btn = $('#do-export'); btn.disabled = true; btn.textContent = 'Gerando arquivos…';
-    buildZip(take, { applyMix: $('#exp-mix').checked, orig: $('#exp-orig').checked }).then(function (z) { return saveFile(z.name, z.data); })
+    buildZip(take, { applyMix: $('#exp-mix').checked, orig: $('#exp-orig').checked, click: $('#exp-click').checked }).then(function (z) { return saveFile(z.name, z.data); })
       .then(function (status) { if (status !== 'declined') { closeSheet('export-sheet'); toast('Pistas exportadas.'); } })
       .catch(function (e) { toast('Não foi possível exportar: ' + e.message, 5000); })
       .then(function () { btn.disabled = false; btn.textContent = 'Exportar .zip'; });
@@ -2237,6 +2359,17 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
         '',
         (take.markers && take.markers.length) ? 'Marcadores:' : ''
       ].concat((take.markers || []).map(function (m, i) { return '  ' + (i + 1) + '. ' + fmtTime(m, true); }));
+      // pista de clique alinhada com a gravação (grid da DAW)
+      if (opts.click !== false && take.clicks && take.clicks.length) {
+        var ck = new Float32Array(n);
+        take.clicks.forEach(function (c) {
+          var s0 = Math.round(c.t * EXPORT_SR), f = c.a ? 1600 : 1000, amp = c.a ? 0.7 : 0.45, len = Math.round(0.03 * EXPORT_SR);
+          for (var i = 0; i < len && s0 + i < n; i++) if (s0 + i >= 0) ck[s0 + i] += amp * Math.sin(2 * Math.PI * f * i / EXPORT_SR) * Math.exp(-i / (0.006 * EXPORT_SR));
+        });
+        files.push({ name: pad(take.stems.length + 1) + ' Click (metrônomo).wav', data: DSP.encodeWav([ck], EXPORT_SR, 24) });
+        var fb = take.clicks[0].t;
+        lines.splice(6, 0, 'Clique: ' + take.clicks.length + ' tempos a ' + take.bpm + ' BPM; o primeiro tempo está em ' + fmtTime(fb, true) + '. Use a pista Click para alinhar o grid da DAW.');
+      }
       files.push({ name: 'LEIA-ME.txt', data: lines.filter(function (l, i, a) { return l !== '' || (a[i - 1] !== ''); }).join('\r\n') + '\r\n' });
       return { name: slug(take.name) + '_drumrec.zip', data: DSP.makeZip(files) };
     });

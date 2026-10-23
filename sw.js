@@ -1,6 +1,6 @@
 // Drumrec · service worker: guarda o app para abrir mesmo sem internet.
 // As chamadas para a IA (MVSEP, ponte, Hugging Face) nunca passam pelo cache.
-const CACHE = 'drumrec-v1';
+const CACHE = 'drumrec-v2';
 const APP = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(APP)).then(() => self.skipWaiting()));
