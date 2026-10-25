@@ -184,7 +184,7 @@ button { cursor: pointer; }
 
 /* ---------- mixer ---------- */
 #mix { padding-bottom: 0; }
-.mix-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; color: var(--muted); font-size: 12px; margin: 2px 0 12px; }
+.mix-meta { flex: none; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; color: var(--muted); font-size: 12px; margin: 2px 0 12px; }
 .strips { display: flex; flex-direction: column; gap: 4px; padding-bottom: 210px; }
 .strip { display: grid; grid-template-columns: 40px 1fr; gap: 0 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .strip .spk { grid-row: 1 / span 3; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--panel-2); color: #aab4dc; display: grid; place-items: center; align-self: center; }
@@ -338,6 +338,17 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
 .proc-choice .btn-primary, .proc-choice .btn-ghost { width: 100%; justify-content: center; }
 .proc-choice .btn-ghost { height: 46px; border-radius: 8px; }
 .chip.pending { margin-left: 4px; flex: none; }
+
+/* ---------- cenas ---------- */
+.scenes-label { flex: none; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 4px 0 8px; }
+.scenes { flex: none; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * max(20px, env(safe-area-inset-right, 0px))) 10px calc(-1 * max(20px, env(safe-area-inset-left, 0px))); padding: 2px max(20px, env(safe-area-inset-left, 0px)) 6px; scroll-snap-type: x proximity; }
+.scenes::-webkit-scrollbar { display: none; }
+.scene { flex: 0 0 auto; min-width: 104px; text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; scroll-snap-align: start; }
+.scene strong { font-size: 14px; font-weight: 600; }
+.scene small { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.scene.on { border-color: transparent; background: linear-gradient(135deg, var(--rec-2), var(--rec)); }
+.scene.on small { color: rgba(255,255,255,.85); }
+.toggle-row b { font-weight: 600; color: #fff; }
 </style>
 
 <div class="device" id="device">
@@ -485,6 +496,8 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
       <button class="icon-btn export-btn" id="open-export" aria-label="Exportar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
     </div>
     <div class="mix-meta" id="mix-meta"></div>
+    <div class="scenes-label">Cenas</div>
+    <div class="scenes" id="scenes" role="group" aria-label="Cenas"></div>
     <div class="strips" id="strips"></div>
     <div class="transport">
       <div class="tname" id="t-name">Take</div>
@@ -673,6 +686,8 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
       <div class="daw-list"><span>Logic</span><span>Reaper</span><span>Luna</span><span>Pro Tools</span><span>Ableton</span><span>Cubase</span><span>Studio One</span></div>
       <div class="toggle-row"><span>Aplicar volume, pan e mute do mixer</span><input type="checkbox" class="switch" id="exp-mix"></div>
       <div class="toggle-row"><span>Incluir a gravação original do microfone</span><input type="checkbox" class="switch" id="exp-orig" checked></div>
+      <div class="toggle-row"><span>Incluir o mix da cena <b id="exp-scene-name">Natural</b> <small>um arquivo estéreo pronto para ouvir</small></span><input type="checkbox" class="switch" id="exp-scenemix" checked></div>
+      <div class="toggle-row" id="exp-scenestems-row" hidden><span>Aplicar a cena <b id="exp-scene-name2">Natural</b> nas pistas <small>sem isso, as pistas saem cruas para a DAW</small></span><input type="checkbox" class="switch" id="exp-scenestems"></div>
       <div class="toggle-row" id="exp-click-row" hidden><span>Incluir a pista de clique (grid da DAW)</span><input type="checkbox" class="switch" id="exp-click" checked></div>
       <div class="file-list" id="exp-files"></div>
       <button class="btn-primary" id="do-export">Exportar .zip</button>
@@ -2241,6 +2256,161 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   });
   $('#mvsep-logout').addEventListener('click', function () { settings.mvsepToken = ''; saveSettings(); renderSettings(); });
 
+
+  // ---------------- cenas (timbres prontos, peça por peça) ----------------
+  // eq: [tipo, frequência, ganho dB, Q]; comp: [limiar dB, razão, ataque ms, soltura ms, ganho de saída dB]
+  // rev: envio para a sala da cena (0–1); gain: volume da peça na cena (dB)
+  var SCENES = [
+    { id: 'natural', name: 'Natural', desc: 'Cru, como gravou', pieces: {} },
+    { id: 'estudio', name: 'Estúdio', desc: 'Punch e sala curta', room: { size: 0.9, decay: 3.2, pre: 0.008, damp: 0.55 }, master: { trim: -3.5,  glue: [-14, 2, 20, 200, -2] },
+      pieces: {
+        kick: { eq: [['lowshelf', 70, 3], ['peaking', 380, -3, 1.2], ['peaking', 4000, 3, 1.4]], comp: [-18, 3, 12, 120, -4] },
+        snare: { eq: [['peaking', 200, 2, 1.2], ['peaking', 900, -2, 1.5], ['highshelf', 6000, 2]], comp: [-18, 3, 8, 140, -4], rev: 0.18 },
+        toms: { eq: [['peaking', 110, 2, 1], ['peaking', 450, -3, 1.4]], comp: [-16, 2.5, 15, 160, -3], rev: 0.12 },
+        hihat: { eq: [['lowshelf', 350, -5], ['highshelf', 9000, 1]], gain: -1 },
+        cymbals: { eq: [['lowshelf', 400, -4], ['highshelf', 10000, 1.5]], rev: 0.1 },
+        room: { gain: -3 } } },
+    { id: 'rock', name: 'Rock', desc: 'Sala grande e peso', room: { size: 1.9, decay: 2.6, pre: 0.018, damp: 0.45 }, master: { trim: -3.6,  glue: [-18, 3, 15, 220, -3] },
+      pieces: {
+        kick: { eq: [['lowshelf', 60, 4], ['peaking', 400, -4, 1.2], ['peaking', 3500, 4, 1.3]], comp: [-20, 4, 10, 100, -5] },
+        snare: { eq: [['peaking', 180, 3, 1.2], ['highshelf', 5000, 3]], comp: [-20, 4, 6, 120, -5], rev: 0.35 },
+        toms: { eq: [['peaking', 90, 3, 1], ['peaking', 500, -3, 1.4]], comp: [-18, 3, 12, 150, -4], rev: 0.3 },
+        hihat: { eq: [['lowshelf', 300, -4]], gain: -1 },
+        cymbals: { eq: [['highshelf', 8000, 2]], rev: 0.2 },
+        room: { gain: 2, rev: 0.2 } } },
+    { id: 'jazz', name: 'Jazz', desc: 'Quente e aberto', room: { size: 1.2, decay: 3, pre: 0.012, damp: 0.7 }, master: { glue: [-10, 1.5, 25, 300, -1] },
+      pieces: {
+        kick: { eq: [['lowshelf', 80, 1], ['peaking', 3000, -2, 1]] },
+        snare: { eq: [['peaking', 250, 1, 1], ['highshelf', 6000, 1]], rev: 0.2 },
+        toms: { eq: [['peaking', 120, 1, 1]], rev: 0.2 },
+        hihat: { eq: [['highshelf', 8000, 2]], gain: 2 },
+        cymbals: { eq: [['highshelf', 7000, 2]], gain: 2, rev: 0.15 },
+        room: { gain: 2 } } },
+    { id: 'seco', name: 'Seco', desc: 'Curto e na cara', master: { trim: -4.3,  glue: [-14, 2.5, 10, 120, -2] },
+      pieces: {
+        kick: { eq: [['lowshelf', 60, 3], ['peaking', 350, -4, 1.4], ['peaking', 4000, 3, 1.4]], comp: [-16, 4, 5, 80, -4] },
+        snare: { eq: [['peaking', 200, 2, 1.3], ['peaking', 3000, 2, 1]], comp: [-16, 4, 4, 90, -4] },
+        toms: { eq: [['peaking', 100, 2, 1]], comp: [-16, 3, 8, 90, -3] },
+        hihat: { gain: -2 },
+        cymbals: { gain: -2 },
+        room: { gain: -14 } } },
+    { id: 'lofi', name: 'Lo-fi', desc: 'Abafado e vintage', room: { size: 0.6, decay: 4, pre: 0.004, damp: 0.8 }, master: { trim: -1.4,  lofi: { hp: 140, lp: 4200, drive: 2.4 }, glue: [-20, 4, 15, 200, -4] },
+      pieces: {
+        kick: { eq: [['lowshelf', 90, 2]] },
+        snare: { rev: 0.12 },
+        cymbals: { gain: -3 },
+        room: { gain: -2 } } }
+  ];
+  function sceneOf(id) { for (var i = 0; i < SCENES.length; i++) if (SCENES[i].id === id) return SCENES[i]; return SCENES[0]; }
+  function pieceCfg(scene, id) { var g = (id === 'ride' || id === 'crash' || id === 'cymbals') ? 'cymbals' : id; return scene.pieces[id] || scene.pieces[g] || {}; }
+  // Cadeia de uma peça: EQ -> compressor -> volume da cena. Funciona em AudioContext e OfflineAudioContext.
+  function buildChain(ctx, cfg) {
+    var input = ctx.createGain(), last = input;
+    function add(n) { last.connect(n); last = n; }
+    (cfg.eq || []).forEach(function (e) {
+      var f = ctx.createBiquadFilter(); f.type = e[0]; f.frequency.value = e[1]; f.gain.value = e[2]; if (e[3]) f.Q.value = e[3]; add(f);
+    });
+    if (cfg.comp) {
+      var c = ctx.createDynamicsCompressor();
+      c.threshold.value = cfg.comp[0]; c.ratio.value = cfg.comp[1]; c.attack.value = cfg.comp[2] / 1000; c.release.value = cfg.comp[3] / 1000; c.knee.value = 6;
+      add(c);
+      var mk = ctx.createGain(); mk.gain.value = dbToGain(cfg.comp[4] || 0); add(mk);
+    }
+    var g = ctx.createGain(); g.gain.value = dbToGain(cfg.gain || 0); add(g);
+    return { input: input, output: last, send: cfg.rev || 0 };
+  }
+  // Sala sintética (resposta impulsiva estéreo), guardada por contexto
+  function makeIR(ctx, room) {
+    var sr = ctx.sampleRate, len = Math.round(sr * room.size), b = ctx.createBuffer(2, len, sr);
+    var seed = 11;
+    for (var ch = 0; ch < 2; ch++) {
+      var d = b.getChannelData(ch), lp = 0, pre = Math.round(room.pre * sr);
+      for (var i = pre; i < len; i++) {
+        seed = (seed * 1664525 + 1013904223 + ch) >>> 0;
+        var n = seed / 4294967296 * 2 - 1;
+        lp = lp * room.damp + n * (1 - room.damp);
+        d[i] = lp * Math.exp(-room.decay * (i - pre) / sr / (room.size / 2)) * 0.5;
+      }
+    }
+    return b;
+  }
+  // Saída geral da cena: sala (reverb), "cola" (compressão do mix), lo-fi e um limitador de segurança
+  function buildMaster(ctx, scene, dest, stemOnly) {
+    var input = ctx.createGain(), last = input;
+    function add(n) { last.connect(n); last = n; }
+    var m = stemOnly ? {} : (scene.master || {});
+    if (m.lofi) {
+      var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = m.lofi.hp; add(hp);
+      var sh = ctx.createWaveShaper(), curve = new Float32Array(1024), k = m.lofi.drive;
+      for (var i = 0; i < 1024; i++) { var x = i / 511.5 - 1; curve[i] = Math.tanh(k * x) / Math.tanh(k); }
+      sh.curve = curve; add(sh);
+      var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = m.lofi.lp; lp.Q.value = 0.5; add(lp);
+    }
+    if (m.glue) {
+      var c = ctx.createDynamicsCompressor();
+      c.threshold.value = m.glue[0]; c.ratio.value = m.glue[1]; c.attack.value = m.glue[2] / 1000; c.release.value = m.glue[3] / 1000; c.knee.value = 10;
+      add(c);
+      var mk = ctx.createGain(); mk.gain.value = dbToGain(m.glue[4] || 0); add(mk);
+    }
+    if (m.trim) { var tr = ctx.createGain(); tr.gain.value = dbToGain(m.trim); add(tr); }
+    if (!stemOnly) { var lim = ctx.createDynamicsCompressor(); lim.threshold.value = -1.5; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.08; lim.knee.value = 0; add(lim); }
+    last.connect(dest);
+    var rev = null;
+    if (scene.room) { rev = ctx.createConvolver(); rev.normalize = true; rev.buffer = makeIR(ctx, scene.room); rev.connect(input); }
+    return { input: input, rev: rev };
+  }
+  // Monta o grafo completo de uma faixa (peças + cena) num contexto qualquer
+  function wireTake(ctx, t, sceneId, dest, opts) {
+    opts = opts || {};
+    var scene = sceneOf(sceneId), master = buildMaster(ctx, scene, dest, !!opts.only), nodes = {};
+    t.stems.forEach(function (s) {
+      if (opts.only && opts.only !== s.id) return;
+      var g = ctx.createGain(), ch = buildChain(ctx, pieceCfg(scene, s.id)), p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      g.connect(ch.input);
+      if (p) { ch.output.connect(p); p.connect(master.input); } else ch.output.connect(master.input);
+      var send = null;
+      if (master.rev && ch.send > 0) { send = ctx.createGain(); send.gain.value = ch.send; ch.output.connect(send); send.connect(master.rev); }
+      nodes[s.id] = { gain: g, pan: p, chain: ch, send: send };
+    });
+    return { nodes: nodes, master: master };
+  }
+  // Renderiza a cena fora de tempo real (para exportar). only = id de uma peça, ou nada para o mix inteiro.
+  function renderScene(t, sceneId, opts) {
+    opts = opts || {};
+    var C = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!C) return Promise.reject(new Error('este navegador não consegue renderizar a cena'));
+    var n = Math.round(t.raw.length * EXPORT_SR / t.sr), ctx = new C(2, n, EXPORT_SR);
+    var w = wireTake(ctx, t, sceneId, ctx.destination, opts);
+    t.stems.forEach(function (s) {
+      var nd = w.nodes[s.id]; if (!nd) return;
+      var m = t.mix[s.id] || { db: 0, pan: 0 };
+      var on = opts.applyMix ? audibleIn(t, s.id) : true;
+      nd.gain.gain.value = on ? (opts.applyMix ? dbToGain(m.db) : 1) : 0;
+      if (nd.pan) nd.pan.pan.value = opts.applyMix ? m.pan / 100 : 0;
+      var b = ctx.createBuffer(1, s.data.length, t.sr); b.getChannelData(0).set(s.data);
+      var src = ctx.createBufferSource(); src.buffer = b; src.connect(nd.gain); src.start(0);
+    });
+    return ctx.startRendering().then(function (r) { return [r.getChannelData(0).slice(0), r.getChannelData(1).slice(0)]; });
+  }
+  function renderScenes() {
+    var box = $('#scenes'); box.innerHTML = '';
+    SCENES.forEach(function (sc) {
+      var b = document.createElement('button'); b.className = 'scene' + ((take.scene || 'natural') === sc.id ? ' on' : '');
+      b.innerHTML = '<strong></strong><small></small>';
+      b.querySelector('strong').textContent = sc.name; b.querySelector('small').textContent = sc.desc;
+      b.setAttribute('aria-pressed', (take.scene || 'natural') === sc.id ? 'true' : 'false');
+      b.addEventListener('click', function () { setScene(sc.id); });
+      box.appendChild(b);
+    });
+  }
+  function setScene(id) {
+    if ((take.scene || 'natural') === id) return;
+    take.scene = id; persistMix(); renderScenes();
+    var was = player && player.playing, pos = position();
+    makePlayer(); player.offset = pos; if (was) play();
+    toast('Cena: ' + sceneOf(id).name, 1400);
+  }
+
   // ---------------- mixer ----------------
   var player = null, take = null;
   function openMixer(t) {
@@ -2253,7 +2423,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     $('#t-len').textContent = fmtTime(t.duration);
     var marks = $('#t-marks'); marks.innerHTML = '';
     (t.markers || []).forEach(function (m) { var i = document.createElement('i'); i.style.left = (m / t.duration * 100) + '%'; marks.appendChild(i); });
-    buildStrips(); makePlayer(); updatePos(0);
+    renderScenes(); buildStrips(); makePlayer(); updatePos(0);
   }
   function buildStrips() {
     var box = $('#strips'); box.innerHTML = '';
@@ -2316,11 +2486,10 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     var ctx = audioCtx();
     player = { playing: false, offset: 0, startAt: 0, nodes: {}, sources: [], master: ctx.createGain() };
     player.master.connect(ctx.destination);
+    var w = wireTake(ctx, take, take.scene || 'natural', player.master);
     take.stems.forEach(function (s) {
       var b = ctx.createBuffer(1, s.data.length, take.sr); b.getChannelData(0).set(s.data);
-      var g = ctx.createGain(), p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-      if (p) { g.connect(p).connect(player.master); } else g.connect(player.master);
-      player.nodes[s.id] = { buffer: b, gain: g, pan: p };
+      player.nodes[s.id] = { buffer: b, gain: w.nodes[s.id].gain, pan: w.nodes[s.id].pan };
     });
     applyMix();
   }
@@ -2376,27 +2545,34 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
       files.push(pad(i + 1) + ' ' + s.label + '.wav');
     });
     if (clickName) files.push(clickName);
+    var sc = sceneOf(take.scene || 'natural');
+    if ($('#exp-scenemix').checked) files.push(pad(take.stems.length + (clickName ? 2 : 1)) + ' Mix (cena ' + sc.name + ').wav');
     files.push('LEIA-ME.txt');
     return files;
   }
   function renderExportList() {
-    var ch = $('#exp-mix').checked ? 'estéreo' : 'mono';
+    var ch = $('#exp-mix').checked || $('#exp-scenestems').checked ? 'estéreo' : 'mono';
     $('#exp-files').innerHTML = '';
-    exportList().forEach(function (f) { var d = document.createElement('div'); d.textContent = f + (f.slice(-4) === '.wav' ? '  ·  ' + (f.indexOf('Original') >= 0 ? 'mono' : ch) : ''); $('#exp-files').appendChild(d); });
+    exportList().forEach(function (f) { var d = document.createElement('div'); d.textContent = f + (f.slice(-4) === '.wav' ? '  ·  ' + (f.indexOf('Original') >= 0 || f.indexOf('Click') >= 0 ? 'mono' : f.indexOf('Mix (cena') >= 0 ? 'estéreo' : ch) : ''); $('#exp-files').appendChild(d); });
   }
   $('#open-export').addEventListener('click', function () {
     pause();
     var hasClick = !!(take.clicks && take.clicks.length);
+    var sc = sceneOf(take.scene || 'natural'), natural = sc.id === 'natural';
+    $('#exp-scene-name').textContent = sc.name; $('#exp-scene-name2').textContent = sc.name;
+    $('#exp-scenestems-row').hidden = natural; if (natural) $('#exp-scenestems').checked = false;
     $('#exp-click-row').hidden = !hasClick;
     renderExportList(); openSheet('export-sheet');
   });
   $('#exp-click').addEventListener('change', function () { renderExportList(); });
+  $('#exp-scenemix').addEventListener('change', function () { renderExportList(); });
+  $('#exp-scenestems').addEventListener('change', function () { renderExportList(); });
   $('#exp-mix').addEventListener('change', renderExportList);
   $('#exp-orig').addEventListener('change', renderExportList);
   $('#export-cancel').addEventListener('click', function () { closeSheet('export-sheet'); });
   $('#do-export').addEventListener('click', function () {
     var btn = $('#do-export'); btn.disabled = true; btn.textContent = 'Gerando arquivos…';
-    buildZip(take, { applyMix: $('#exp-mix').checked, orig: $('#exp-orig').checked, click: $('#exp-click').checked }).then(function (z) { return saveFile(z.name, z.data); })
+    buildZip(take, { applyMix: $('#exp-mix').checked, orig: $('#exp-orig').checked, click: $('#exp-click').checked, sceneMix: $('#exp-scenemix').checked, sceneStems: $('#exp-scenestems').checked }).then(function (z) { return saveFile(z.name, z.data); })
       .then(function (status) { if (status !== 'declined') { closeSheet('export-sheet'); toast('Pistas exportadas.'); } })
       .catch(function (e) { toast('Não foi possível exportar: ' + e.message, 5000); })
       .then(function () { btn.disabled = false; btn.textContent = 'Exportar .zip'; });
@@ -2408,16 +2584,28 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     take.stems.forEach(function (s, i) {
       if (applyMix && !audible(s.id)) return;
       var m = take.mix[s.id];
-      jobs.push({ name: pad(i + 1) + ' ' + s.label + '.wav', data: s.data, gain: applyMix ? dbToGain(m.db) : 1, pan: applyMix ? m.pan / 100 : null });
+      jobs.push({ name: pad(i + 1) + ' ' + s.label + '.wav', data: s.data, gain: applyMix ? dbToGain(m.db) : 1, pan: applyMix ? m.pan / 100 : null, stem: s.id });
     });
-    return Promise.all(jobs.map(function (j) { return resampleTo(j.data, take.sr, EXPORT_SR); })).then(function (datas) {
+    var sceneId = take.scene || 'natural', withScene = opts.sceneStems && sceneId !== 'natural';
+    // cada pista passa pela cena (fica estéreo por causa da sala); o original fica cru
+    var renders = jobs.map(function (j) {
+      if (withScene && j.stem) return renderScene(take, sceneId, { only: j.stem, applyMix: applyMix }).then(function (st) { j.stereo = true; j.gain = 1; return st; });
+      return resampleTo(j.data, take.sr, EXPORT_SR);
+    });
+    var mixP = opts.sceneMix ? renderScene(take, sceneId, { applyMix: true }) : Promise.resolve(null);
+    return Promise.all(renders.concat([mixP])).then(function (all) {
+      var sceneMix = all.pop(), datas = all;
       // mesmo ganho de proteção para todas as pistas (mantém a proporção entre elas)
       var peak = 0;
-      datas.forEach(function (d, k) { var g = jobs[k].gain * (jobs[k].pan === null ? 1 : Math.SQRT2); for (var i = 0; i < d.length; i++) { var a = Math.abs(d[i]) * g; if (a > peak) peak = a; } });
+      datas.forEach(function (d, k) {
+        var arrs = jobs[k].stereo ? d : [d], g = jobs[k].stereo ? 1 : jobs[k].gain * (jobs[k].pan === null ? 1 : Math.SQRT2);
+        arrs.forEach(function (x) { for (var i = 0; i < x.length; i++) { var a = Math.abs(x[i]) * g; if (a > peak) peak = a; } });
+      });
       var safety = peak > 0.989 ? 0.989 / peak : 1;
       var n = Math.round(take.raw.length * EXPORT_SR / take.sr);
       var files = datas.map(function (d, k) {
         var j = jobs[k], g = j.gain * safety, chans;
+        if (j.stereo) return { name: j.name, data: DSP.encodeWav(d.map(function (x) { var o = fit(x, n); for (var i = 0; i < n; i++) o[i] *= safety; return o; }), EXPORT_SR, 24) };
         d = fit(d, n);
         if (j.pan === null) { var m = new Float32Array(n); for (var i = 0; i < n; i++) m[i] = d[i] * g; chans = [m]; }
         else {
@@ -2436,6 +2624,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
         'Todas as pistas começam no mesmo ponto e têm a mesma duração (' + fmtTime(n / EXPORT_SR, true) + ').',
         'Andamento: ' + (take.bpm ? take.bpm + ' BPM' : 'não informado') + '.',
         'Separação: ' + (take.engine === 'mvsep' ? 'IA na nuvem (MVSEP · DrumSep)' : take.engine === 'cloud' ? 'IA DrumSep 6 peças (na nuvem)' : take.engine === 'drumsep' ? 'IA DrumSep 6 peças (no computador)' : take.engine === 'musicai' ? 'Music.AI' : 'local no aparelho (aproximada)') + (take.engineNote ? ' · ' + take.engineNote.replace(/\.$/, '') : '') + '.',
+        withScene ? 'Cena aplicada nas pistas: ' + sceneOf(sceneId).name + ' (equalização, compressão e sala de cada peça; o processamento geral do mix fica só no arquivo Mix).' : '',
         safety < 1 ? 'Ganho de proteção aplicado em todas as pistas: ' + (20 * Math.log10(safety)).toFixed(1) + ' dB (evita saturação).' : '',
         '',
         'Como importar:',
@@ -2456,6 +2645,11 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
         files.push({ name: pad(take.stems.length + 1) + ' Click (metrônomo).wav', data: DSP.encodeWav([ck], EXPORT_SR, 24) });
         var fb = take.clicks[0].t;
         lines.splice(6, 0, 'Clique: ' + take.clicks.length + ' tempos a ' + take.bpm + ' BPM; o primeiro tempo está em ' + fmtTime(fb, true) + '. Use a pista Click para alinhar o grid da DAW.');
+      }
+      if (sceneMix) {
+        var mixNum = pad(take.stems.length + (opts.click !== false && take.clicks && take.clicks.length ? 2 : 1));
+        files.push({ name: mixNum + ' Mix (cena ' + sceneOf(sceneId).name + ').wav', data: DSP.encodeWav(sceneMix.map(function (x) { return fit(x, n); }), EXPORT_SR, 24) });
+        lines.splice(6, 0, 'Mix (cena ' + sceneOf(sceneId).name + '): a bateria mixada em estéreo, com volume, pan e mute do mixer. Pronto para ouvir ou compartilhar.');
       }
       files.push({ name: 'LEIA-ME.txt', data: lines.filter(function (l, i, a) { return l !== '' || (a[i - 1] !== ''); }).join('\r\n') + '\r\n' });
       return { name: slug(take.name) + '_drumrec.zip', data: DSP.makeZip(files) };
@@ -2535,7 +2729,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   setTimeout(function () { if (user) enter(user.name); else show('login'); }, 1300);
 
   // ganchos para testes automatizados
-  window.__drumrec = { loadDemo: loadDemo, buildZip: function () { return buildZip(take, { applyMix: false, orig: true }); }, state: function () { return { current: current, take: take }; } };
+  window.__drumrec = { renderScene: function (id, o) { return renderScene(take, id, o); }, scenes: function () { return SCENES.map(function (x) { return x.id; }); }, loadDemo: loadDemo, buildZip: function () { return buildZip(take, { applyMix: false, orig: true }); }, state: function () { return { current: current, take: take }; } };
 })();
 </script>
 </body></html>
