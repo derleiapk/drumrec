@@ -325,6 +325,19 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
 .metro-opts[hidden] { display: none !important; }
 .toggle-row small { display: block; font-size: 11px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .beat-flash.on, .beat-flash.on.accent { animation: beatFlash .26s ease-out both !important; } }
+
+/* ---------- fila da IA: escolhas do usuário ---------- */
+.proc-actions, .proc-choice { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 10px; width: 100%; max-width: 320px; }
+.proc-actions[hidden], .proc-choice[hidden] { display: none !important; }
+.proc-actions .btn-ghost { width: 100%; justify-content: center; height: 46px; border-radius: 10px; }
+.proc-actions .link, .proc-choice .link { font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.proc-note { margin: 0; font-size: 12px; color: var(--muted-2); }
+.proc-choice { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+.proc-choice h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.proc-choice p { margin: 0 0 4px; font-size: 13px; color: var(--muted); text-align: center; }
+.proc-choice .btn-primary, .proc-choice .btn-ghost { width: 100%; justify-content: center; }
+.proc-choice .btn-ghost { height: 46px; border-radius: 8px; }
+.chip.pending { margin-left: 4px; flex: none; }
 </style>
 
 <div class="device" id="device">
@@ -450,6 +463,18 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     <div id="proc-step">Preparando…</div>
     <div id="proc-engine"></div>
     <button class="btn-ghost" id="proc-skip" hidden>Separar no aparelho agora</button>
+    <div class="proc-actions" id="proc-actions" hidden>
+      <button class="btn-ghost" id="proc-later">Salvar e buscar depois</button>
+      <button class="link" id="proc-local">Separar no aparelho agora (aproximada)</button>
+      <p class="proc-note">A IA continua trabalhando mesmo com o app fechado.</p>
+    </div>
+    <div class="proc-choice" id="proc-choice" hidden>
+      <h2>Não deu para usar a IA agora</h2>
+      <p id="choice-reason"></p>
+      <button class="btn-primary" id="choice-retry">Tentar de novo</button>
+      <button class="btn-ghost" id="choice-later">Salvar e separar depois</button>
+      <button class="link" id="choice-local">Separar no aparelho agora (aproximada)</button>
+    </div>
   </section>
 
   <!-- Mixer -->
@@ -1284,6 +1309,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
         row.innerHTML = '<button class="take-open"><strong></strong><small></small></button><div class="take-actions"><button class="take-export" aria-label="Exportar para a DAW">' + EXPORT_ICON + '</button><button class="take-more" aria-label="Mais opções"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button></div>';
         row.querySelector('strong').textContent = t.name;
         row.querySelector('small').textContent = fmtTime(t.duration);
+        if (!t.stems) row.querySelector('small').insertAdjacentHTML('afterend', '<span class="chip ai pending">' + (t.mvsepHash ? 'na fila da IA' : 'não separada') + '</span>');
         row.querySelector('.take-open').title = fmtDate(t.created) + (t.bpm ? ' · ' + t.bpm + ' BPM' : '') + (t.engine && t.engine !== 'local' ? ' · ' + ENGINE_NAME[t.engine] : '');
         var opener = row.querySelector('.take-open'), pressTimer = null, longPressed = false;
         opener.addEventListener('click', function () { if (longPressed) { longPressed = false; return; } if (t.stems) openMixer(t); else processTake(t); });
@@ -1747,7 +1773,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   $('#save-cancel').addEventListener('click', function () { closeSheet('save-sheet'); pendingTake = null; toast('Gravação descartada.'); goHome(); });
 
   // ---------------- separação ----------------
-  function progress(p, msg) { $('#proc-bar').style.width = Math.round(Math.max(0.03, Math.min(1, p)) * 100) + '%'; if (msg) $('#proc-step').textContent = msg; }
+  function progress(p, msg) { if (p != null) $('#proc-bar').style.width = Math.round(Math.max(0.03, Math.min(1, p)) * 100) + '%'; if (msg) $('#proc-step').textContent = msg; }
   var ENGINE_NAME = { mvsep: 'IA na nuvem (MVSEP)', cloud: 'IA na nuvem (DrumSep)', drumsep: 'IA no computador (DrumSep)', musicai: 'Music.AI', local: 'No aparelho (aproximada)' };
   // Decide o motor: o escolhido nos ajustes, se disponível; senão, o aparelho.
   function pickEngine(force) {
@@ -1765,24 +1791,61 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   }
   var skipCloud = false;
   $('#proc-skip').addEventListener('click', function () { skipCloud = true; $('#proc-skip').hidden = true; });
+  // Decisão do usuário durante a fila / após erro: 'local' (aproximada agora) ou 'later' (salvar e buscar depois)
+  var procChoice = null;
+  function procCheck() { if (procChoice) { var c = procChoice; procChoice = null; throw new Error('choice:' + c); } }
+  function showQueueActions(on) { $('#proc-actions').hidden = !on; }
+  $('#proc-local').addEventListener('click', function () { procChoice = 'local'; skipCloud = true; showQueueActions(false); progress(0.5, 'Trocando para a separação no aparelho…'); });
+  $('#proc-later').addEventListener('click', function () { procChoice = 'later'; skipCloud = true; showQueueActions(false); progress(0.5, 'Salvando…'); });
+  // Pergunta o que fazer quando a IA falha (nunca troca sozinho)
+  function askOnError(engine, err) {
+    return new Promise(function (resolve) {
+      showQueueActions(false); $('#proc-skip').hidden = true;
+      $('#choice-reason').textContent = (ENGINE_NAME[engine] || 'A IA') + ': ' + err.message + '.';
+      $('#proc-choice').hidden = false;
+      function pick(v) { $('#proc-choice').hidden = true; ['choice-retry', 'choice-later', 'choice-local'].forEach(function (id) { document.getElementById(id).onclick = null; }); resolve(v); }
+      document.getElementById('choice-retry').onclick = function () { pick('retry'); };
+      document.getElementById('choice-later').onclick = function () { pick('later'); };
+      document.getElementById('choice-local').onclick = function () { pick('local'); };
+    });
+  }
   function processTake(take, forceEngine) {
     show('proc'); progress(0.02, 'Preparando a gravação');
-    skipCloud = false; $('#proc-skip').hidden = true;
+    skipCloud = false; procChoice = null; $('#proc-skip').hidden = true; $('#proc-choice').hidden = true; showQueueActions(false);
+    if (!take.stems) Store.put(take); // a gravação fica salva mesmo se algo der errado
+    var runLocal = function () {
+      $('#proc-engine').textContent = 'Separação no aparelho (aproximada)';
+      return separateLocal(take.raw, take.sr).then(function (r) { r.engine = 'local'; return r; });
+    };
     var check = forceEngine ? Promise.resolve() : Promise.all([checkServer(), checkCloud()]);
     check.then(function () {
       var engine = pickEngine(forceEngine);
       if (!forceEngine && settings.engine !== 'local' && engine === 'local') toast((settings.mvsepToken || cloud.base ? 'IA na nuvem fora do alcance' : 'Entre com a conta grátis do MVSEP nos ajustes para usar a IA') + '. Separando no aparelho.', 5000);
-      $('#proc-engine').textContent = engine === 'local' ? 'Separação no aparelho (aproximada)' : 'Separando com ' + ENGINE_NAME[engine];
-      var runLocal = function () { return separateLocal(take.raw, take.sr).then(function (r) { r.engine = 'local'; return r; }); };
-      var p = engine === 'local' ? runLocal() : (engine === 'mvsep' ? separateMvsep(take) : engine === 'cloud' ? separateCloud(take) : separateServer(take, engine)).catch(function (err) {
-        $('#proc-skip').hidden = true;
-        if (err.message !== 'skip') toast(ENGINE_NAME[engine] + ': ' + err.message + '. Separando no aparelho.', 6500);
-        $('#proc-engine').textContent = 'Separação no aparelho (aproximada)';
-        return runLocal();
-      });
-      return p;
+      if (engine === 'local') return runLocal();
+      function attempt() {
+        $('#proc-engine').textContent = 'Separando com ' + ENGINE_NAME[engine];
+        var run = engine === 'mvsep' ? separateMvsep(take) : engine === 'cloud' ? separateCloud(take) : separateServer(take, engine);
+        return run.catch(function (err) {
+          showQueueActions(false); $('#proc-skip').hidden = true;
+          var m = String(err && err.message || '');
+          if (m === 'skip' || m === 'choice:local') return runLocal();
+          if (m === 'choice:later') return 'later';
+          return askOnError(engine, err).then(function (c) {
+            if (c === 'retry') { progress(0.04, 'Tentando de novo'); return attempt(); }
+            if (c === 'later') return 'later';
+            return runLocal();
+          });
+        });
+      }
+      return attempt();
     }).then(function (r) {
+      if (r === 'later') {
+        Store.put(take); goHome();
+        toast(take.mvsepHash ? 'Gravação salva. A IA continua na fila; toque na faixa depois para buscar as pistas.' : 'Gravação salva. Toque na faixa depois para separar.', 6000);
+        return;
+      }
       take.stems = r.stems; take.engine = r.engine; take.engineNote = r.note || '';
+      delete take.mvsepHash;
       take.mix = {};
       take.stems.forEach(function (s) { take.mix[s.id] = { db: s.id === 'room' ? -6 : 0, pan: 0, mute: false, solo: false }; });
       progress(1, 'Pronto');
@@ -1792,6 +1855,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
       console.error(err); toast('Não foi possível separar: ' + err.message, 5000); goHome();
     });
   }
+
 
   var dspSource = (document.getElementById('dsp-src') || {}).textContent || '';
   function separateLocal(x, sr) {
@@ -2092,39 +2156,61 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
     return list;
   }
   function separateMvsep(take) {
-    var tok = settings.mvsepToken, hash;
-    progress(0.04, 'Preparando para a IA na nuvem');
-    return resampleTo(take.raw, take.sr, 44100).then(function (x) {
-      var fd = new FormData();
-      fd.append('audiofile', new Blob([DSP.encodeWav([x], 44100, 16)], { type: 'audio/wav' }), 'drumrec.wav');
-      fd.append('api_token', tok);
-      fd.append('sep_type', '37');   // DrumSep
-      fd.append('add_opt1', '7');    // MelBand Roformer, 6 peças
-      fd.append('add_opt2', '1');    // a gravação já é só bateria
-      fd.append('output_format', '1'); // WAV 16 bits
-      progress(0.08, 'Enviando a gravação (' + (x.length * 2 / 1048576).toFixed(1) + ' MB)');
-      return mvsepFetch(mvsepApi() + '/separation/create', { method: 'POST', body: fd }, 180000).then(mvsepJson);
-    }).then(function (j) {
-      hash = j.data && j.data.hash;
-      if (!hash) throw new Error('o MVSEP não aceitou o pedido');
-      var t0 = Date.now();
-      function poll(n) {
-        return new Promise(function (r) { setTimeout(r, n ? 3000 : 1500); })
-          .then(function () { return mvsepFetch(mvsepApi() + '/separation/get?hash=' + encodeURIComponent(hash), { cache: 'no-store' }, 30000).then(mvsepJson); })
-          .then(function (g) {
-            var st = (g.status || (g.data && g.data.status) || '').toLowerCase(), d = g.data || {};
-            var sec = (Date.now() - t0) / 1000;
-            if (st === 'done') return d;
-            if (st === 'failed' || st === 'not_found') throw new Error(d.message || g.message || 'a separação falhou no MVSEP');
-            var queue = d.queue_count != null ? d.queue_count : (d.current_order != null ? d.current_order : null);
-            var msg = st === 'waiting' ? 'Na fila do MVSEP' + (queue ? ' (' + queue + ' na frente)' : '') : 'A IA está separando as peças na nuvem';
-            progress(st === 'waiting' ? Math.min(0.3, 0.12 + sec / 600) : Math.min(0.82, 0.3 + sec / 120), msg + ' · ' + fmtTime(sec));
-            if (sec > 30 * 60) throw new Error('o MVSEP demorou mais de 30 minutos');
-            return poll(n + 1);
-          });
-      }
-      return poll(0);
+    var tok = settings.mvsepToken, hash = take.mvsepHash || null;
+    progress(0.04, hash ? 'Retomando o pedido na fila do MVSEP' : 'Preparando para a IA na nuvem');
+    function create() {
+      return resampleTo(take.raw, take.sr, 44100).then(function (x) {
+        procCheck();
+        var fd = new FormData();
+        fd.append('audiofile', new Blob([DSP.encodeWav([x], 44100, 16)], { type: 'audio/wav' }), 'drumrec.wav');
+        fd.append('api_token', tok);
+        fd.append('sep_type', '37');   // DrumSep
+        fd.append('add_opt1', '7');    // MelBand Roformer, 6 peças
+        fd.append('add_opt2', '1');    // a gravação já é só bateria
+        fd.append('output_format', '1'); // WAV 16 bits
+        progress(0.08, 'Enviando a gravação (' + (x.length * 2 / 1048576).toFixed(1) + ' MB)');
+        return mvsepFetch(mvsepApi() + '/separation/create', { method: 'POST', body: fd }, 300000).then(mvsepJson);
+      }).then(function (j) {
+        hash = j.data && j.data.hash;
+        if (!hash) throw new Error('o MVSEP não aceitou o pedido');
+        take.mvsepHash = hash; take.mvsepAt = Date.now(); Store.put(take); // dá para buscar depois
+      });
+    }
+    var t0 = Date.now(), fails = 0;
+    function poll(n) {
+      return new Promise(function (r) { setTimeout(r, n ? 4000 : 1500); })
+        .then(function () {
+          procCheck();
+          return mvsepFetch(mvsepApi() + '/separation/get?hash=' + encodeURIComponent(hash), { cache: 'no-store' }, 45000).then(mvsepJson)
+            .then(function (g) { fails = 0; return g; }, function (e) {
+              // falha passageira (internet, servidor cheio): tenta de novo antes de desistir
+              if (++fails < 12) { progress(null, 'Sem resposta do MVSEP, tentando de novo (' + fails + ')…'); return null; }
+              throw e;
+            });
+        })
+        .then(function (g) {
+          procCheck();
+          if (!g) return poll(n + 1);
+          var st = (g.status || (g.data && g.data.status) || '').toLowerCase(), d = g.data || {};
+          var sec = (Date.now() - t0) / 1000;
+          if (st === 'done') return d;
+          if (st === 'not_found') { var e = new Error('o pedido não foi encontrado no MVSEP (pode ter expirado)'); e.notFound = true; throw e; }
+          if (st === 'failed') throw new Error(d.message || g.message || 'a separação falhou no MVSEP');
+          var queue = d.queue_count != null ? d.queue_count : (d.current_order != null ? d.current_order : null);
+          var waiting = st === 'waiting' || st === 'distributing';
+          var msg = waiting ? 'Na fila do MVSEP' + (queue ? ' (' + queue + ' na frente)' : '') : 'A IA está separando as peças na nuvem';
+          progress(waiting ? Math.min(0.3, 0.12 + sec / 1800) : Math.min(0.82, 0.3 + sec / 120), msg + ' · ' + fmtTime(sec));
+          showQueueActions(true);
+          return poll(n + 1);
+        });
+    }
+    var start = hash ? Promise.resolve() : create();
+    return start.then(function () { return poll(0); }).catch(function (err) {
+      // pedido antigo expirou: envia de novo
+      if (err && err.notFound && take.mvsepHash) { delete take.mvsepHash; hash = null; return create().then(function () { return poll(0); }); }
+      throw err;
     }).then(function (d) {
+      showQueueActions(false);
       var files = mvsepFiles(d.files || d).filter(function (f) { return stemFromName(f.name) || stemFromName(f.url); });
       if (!files.length) throw new Error('o MVSEP não devolveu as peças da bateria');
       progress(0.85, 'Baixando as pistas');
@@ -2141,6 +2227,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
       return assemble(take, parts, 'mvsep');
     });
   }
+
   $('#mvsep-enter').addEventListener('click', function () {
     var email = $('#mvsep-email').value.trim(), pass = $('#mvsep-pass').value, btn = $('#mvsep-enter'), err = $('#mvsep-error');
     err.hidden = true;
