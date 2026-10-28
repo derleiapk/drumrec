@@ -30,7 +30,7 @@ body {
   font: 15px/1.4 var(--font-ui); -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
-button, input { font: inherit; color: inherit; }
+button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--rec); outline-offset: 2px; }
 
@@ -349,6 +349,26 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
 .scene.on { border-color: transparent; background: linear-gradient(135deg, var(--rec-2), var(--rec)); }
 .scene.on small { color: rgba(255,255,255,.85); }
 .toggle-row b { font-weight: 600; color: #fff; }
+
+/* ---------- feedback ---------- */
+.fb fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fb legend { font-size: 14px; color: #fff; padding: 0; margin-bottom: 8px; }
+.fb legend small { color: var(--muted); font-size: 11px; margin-left: 4px; }
+.fb-stars { display: flex; gap: 6px; }
+.fb-star { border: 0; background: none; font-size: 34px; line-height: 1; color: var(--line); padding: 0 2px; }
+.fb-star.on { color: var(--rec); }
+.fb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fb-chip { border: 1px solid var(--line); background: var(--panel-2); color: #c5cdf0; border-radius: 99px; padding: 7px 12px; font-size: 13px; }
+.fb-chip.on { background: linear-gradient(135deg, var(--rec-2), var(--rec)); border-color: transparent; color: #fff; }
+.fb-text { height: auto; padding: 10px 12px; resize: vertical; font-size: 14px; }
+.fb .err { font-size: 12px; color: #ff7a9a; background: rgba(224,36,79,.12); border-radius: 8px; padding: 8px 10px; }
+.fb-card { flex: none; display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 6px 10px 14px; margin-bottom: 8px; }
+.fb-card[hidden] { display: none !important; }
+.fb-card div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fb-card strong { font-size: 14px; font-weight: 600; }
+.fb-card small { font-size: 12px; color: var(--muted); }
+.fb-card .btn-primary.small { width: auto; padding: 0 14px; height: 36px; margin: 0; }
+.fb-card .icon-btn { width: 32px; height: 32px; }
 </style>
 
 <div class="device" id="device">
@@ -395,11 +415,16 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
       <button class="profile-name" id="edit-name" aria-label="Editar nome"><span id="hello-name">Paulo Tiano</span><i class="dot"></i></button>
       <div class="profile-stats" id="profile-stats"></div>
     </div>
+    <div class="fb-card" id="fb-card" hidden>
+      <div><strong>O que achou do Drumrec?</strong><small>5 perguntas, 30 segundos</small></div>
+      <button class="btn-primary small" id="fb-card-go">Responder</button>
+      <button class="icon-btn" id="fb-card-x" aria-label="Agora não"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
     <div class="take-list" id="take-list"></div>
     <div class="home-actions">
       <button class="mic-btn" id="go-rec" aria-label="Gravar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>
       <div class="home-links">
-        <button class="link" id="import-btn">Importar áudio</button><span>·</span><button class="link" id="demo-btn">Groove de exemplo</button>
+        <button class="link" id="import-btn">Importar áudio</button><span>·</span><button class="link" id="demo-btn">Groove de exemplo</button><span>·</span><button class="link" id="fb-open">Dar feedback</button>
       </div>
       <input type="file" id="file-input" accept="audio/*,video/*,.wav,.mp3,.m4a,.aif,.aiff,.flac,.ogg" hidden>
     </div>
@@ -430,6 +455,26 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Folha: feedback -->
+  <div class="scrim" id="fb-sheet" hidden>
+    <form class="sheet fb" id="fb-form">
+      <h2>Seu feedback</h2>
+      <fieldset><legend>1. Nota geral para o Drumrec</legend>
+        <div class="fb-stars" id="fb-stars"><button type="button" class="fb-star" data-v="1" aria-label="1 de 5">★</button><button type="button" class="fb-star" data-v="2" aria-label="2 de 5">★</button><button type="button" class="fb-star" data-v="3" aria-label="3 de 5">★</button><button type="button" class="fb-star" data-v="4" aria-label="4 de 5">★</button><button type="button" class="fb-star" data-v="5" aria-label="5 de 5">★</button></div></fieldset>
+      <fieldset><legend>2. Como ficou a separação das peças?</legend>
+        <div class="fb-chips"><button type="button" class="fb-chip" data-q="sep" data-v="Ótima">Ótima</button><button type="button" class="fb-chip" data-q="sep" data-v="Boa">Boa</button><button type="button" class="fb-chip" data-q="sep" data-v="Regular">Regular</button><button type="button" class="fb-chip" data-q="sep" data-v="Ruim">Ruim</button><button type="button" class="fb-chip" data-q="sep" data-v="Não testei">Não testei</button></div></fieldset>
+      <fieldset><legend>3. Qual peça separou pior? <small>opcional</small></legend>
+        <div class="fb-chips"><button type="button" class="fb-chip" data-q="pior" data-v="Bumbo">Bumbo</button><button type="button" class="fb-chip" data-q="pior" data-v="Caixa">Caixa</button><button type="button" class="fb-chip" data-q="pior" data-v="Tons">Tons</button><button type="button" class="fb-chip" data-q="pior" data-v="Chimbal">Chimbal</button><button type="button" class="fb-chip" data-q="pior" data-v="Ride">Ride</button><button type="button" class="fb-chip" data-q="pior" data-v="Crash">Crash</button><button type="button" class="fb-chip" data-q="pior" data-v="Nenhuma">Nenhuma</button></div></fieldset>
+      <fieldset><legend>4. Cena favorita</legend>
+        <div class="fb-chips"><button type="button" class="fb-chip" data-q="cena" data-v="Natural">Natural</button><button type="button" class="fb-chip" data-q="cena" data-v="Estúdio">Estúdio</button><button type="button" class="fb-chip" data-q="cena" data-v="Rock">Rock</button><button type="button" class="fb-chip" data-q="cena" data-v="Jazz">Jazz</button><button type="button" class="fb-chip" data-q="cena" data-v="Seco">Seco</button><button type="button" class="fb-chip" data-q="cena" data-v="Lo-fi">Lo-fi</button><button type="button" class="fb-chip" data-q="cena" data-v="Não testei">Não testei</button></div></fieldset>
+      <fieldset><legend>5. O que faltou ou atrapalhou? <small>opcional</small></legend>
+        <textarea class="field fb-text" id="fb-text" rows="3" maxlength="600" placeholder="Escreva à vontade"></textarea></fieldset>
+      <div class="err" id="fb-err" hidden>Responda as perguntas 1, 2 e 4.</div>
+      <button class="btn-primary" type="submit" id="fb-send">Enviar pelo WhatsApp</button>
+      <button class="link" type="button" id="fb-cancel" style="align-self:center">Agora não</button>
+    </form>
   </div>
 
   <!-- Folha: nome -->
@@ -1302,7 +1347,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   $('#logout').addEventListener('click', function () { store('user', null); user = null; closeSheet('settings-sheet'); show('login'); });
 
   // ---------------- início ----------------
-  function goHome() { stopPlayer(); show('home'); renderTakes(); }
+  function goHome() { stopPlayer(); show('home'); renderTakes(); if (typeof maybeInviteFeedback === 'function') maybeInviteFeedback(); }
   var EXPORT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M14 4H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h8"/><path d="M10 12h10m0 0-3.5-3.5M20 12l-3.5 3.5"/></svg>';
   function renderTakes() {
     Store.all().then(function (takes) {
@@ -2573,7 +2618,7 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   $('#do-export').addEventListener('click', function () {
     var btn = $('#do-export'); btn.disabled = true; btn.textContent = 'Gerando arquivos…';
     buildZip(take, { applyMix: $('#exp-mix').checked, orig: $('#exp-orig').checked, click: $('#exp-click').checked, sceneMix: $('#exp-scenemix').checked, sceneStems: $('#exp-scenestems').checked }).then(function (z) { return saveFile(z.name, z.data); })
-      .then(function (status) { if (status !== 'declined') { closeSheet('export-sheet'); toast('Pistas exportadas.'); } })
+      .then(function (status) { if (status !== 'declined') { closeSheet('export-sheet'); toast('Pistas exportadas.'); store('exportedOnce', true); } })
       .catch(function (e) { toast('Não foi possível exportar: ' + e.message, 5000); })
       .then(function () { btn.disabled = false; btn.textContent = 'Exportar .zip'; });
   });
@@ -2716,6 +2761,72 @@ input.pan::-moz-range-thumb { background: #aab4dc; width: 10px; height: 10px; }
   $('#refine-local').addEventListener('change', function (e) { settings.refine = e.target.checked; saveSettings(); });
 
   window.addEventListener('resize', function () { if (current === 'rec') sizeCanvas($('#rec-wave')); });
+
+
+  // ---------------- feedback (5 perguntas, envio pelo WhatsApp) ----------------
+  var fb = {};
+  function openFeedback() {
+    fb = {}; $('#fb-text').value = ''; $('#fb-err').hidden = true;
+    $$('.fb-star').forEach(function (b) { b.classList.remove('on'); });
+    $$('.fb-chip').forEach(function (b) { b.classList.remove('on'); });
+    $('#fb-card').hidden = true; store('fbAsked', true);
+    openSheet('fb-sheet');
+  }
+  $$('.fb-star').forEach(function (b) {
+    b.addEventListener('click', function () { $('#fb-err').hidden = true; fb.nota = +b.dataset.v; $$('.fb-star').forEach(function (x) { x.classList.toggle('on', +x.dataset.v <= fb.nota); }); });
+  });
+  $$('.fb-chip').forEach(function (b) {
+    b.addEventListener('click', function () {
+      $('#fb-err').hidden = true; var q = b.dataset.q; fb[q] = fb[q] === b.dataset.v ? null : b.dataset.v;
+      $$('.fb-chip[data-q="' + q + '"]').forEach(function (x) { x.classList.toggle('on', x.dataset.v === fb[q]); });
+    });
+  });
+  function deviceName() {
+    var ua = navigator.userAgent, os = /iPhone|iPad/.test(ua) ? 'iPhone/iPad' : /Android/.test(ua) ? 'Android' : 'Computador';
+    var br = /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /CriOS|Chrome/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : /Firefox/.test(ua) ? 'Firefox' : 'navegador';
+    var inst = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ? ', instalado' : '';
+    return os + ' · ' + br + inst;
+  }
+  $('#fb-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!fb.nota || !fb.sep || !fb.cena) { $('#fb-err').hidden = false; return; }
+    $('#fb-err').hidden = true;
+    Store.all().then(function (takes) {
+      var eng = {}; takes.forEach(function (t) { if (t.engine) eng[t.engine] = (eng[t.engine] || 0) + 1; });
+      var engTxt = Object.keys(eng).map(function (k) { return (k === 'mvsep' ? 'IA MVSEP' : k === 'local' ? 'aproximada' : ENGINE_NAME[k] || k) + ' ×' + eng[k]; }).join(', ') || 'nenhuma';
+      var txt = [
+        '🥁 Feedback do Drumrec' + (user && user.name ? ' (' + user.name + ')' : ''),
+        'Nota: ' + '★'.repeat(fb.nota) + '☆'.repeat(5 - fb.nota) + ' (' + fb.nota + '/5)',
+        'Separação: ' + fb.sep + (fb.pior ? ' · pior peça: ' + fb.pior : ''),
+        'Cena favorita: ' + fb.cena,
+        $('#fb-text').value.trim() ? 'Comentário: ' + $('#fb-text').value.trim() : '',
+        '—',
+        takes.length + (takes.length === 1 ? ' gravação' : ' gravações') + ' · separações: ' + engTxt + ' · ' + deviceName()
+      ].filter(Boolean).join('\n');
+      sendFeedback(txt);
+    });
+  });
+  function sendFeedback(txt) {
+    var num = String(CONFIG.feedbackWhatsApp || '').replace(/\D/g, '');
+    closeSheet('fb-sheet');
+    if (num) {
+      var a = document.createElement('a'); a.href = 'https://wa.me/' + num + '?text=' + encodeURIComponent(txt); a.target = '_blank'; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('Obrigado! Confirme o envio no WhatsApp.', 4000); return;
+    }
+    if (navigator.share) {
+      navigator.share({ text: txt }).then(function () { toast('Obrigado pelo feedback!'); }).catch(function () { });
+      return;
+    }
+    var done = function () { toast('Feedback copiado. Cole numa mensagem para quem te mandou o app.', 5000); };
+    try { navigator.clipboard.writeText(txt).then(done, function () { window.__fbText = txt; toast(txt, 9000); }); } catch (err) { toast(txt, 9000); }
+  }
+  $('#fb-open').addEventListener('click', openFeedback);
+  $('#fb-card-go').addEventListener('click', openFeedback);
+  $('#fb-card-x').addEventListener('click', function () { $('#fb-card').hidden = true; store('fbAsked', true); });
+  $('#fb-cancel').addEventListener('click', function () { closeSheet('fb-sheet'); });
+  // convite aparece uma vez, depois que a pessoa exporta pela primeira vez
+  function maybeInviteFeedback() { if (!store('fbAsked') && store('exportedOnce')) $('#fb-card').hidden = false; }
 
   // ---------------- início do app ----------------
   // app instalado (site/APK): registra o service worker para abrir offline
